@@ -1,0 +1,34 @@
+#!/bin/bash
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 desktop_entry_file.desktop"
+    exit 1
+fi
+
+desktop_entry_file="$1"
+
+# Extract the Exec line from the desktop entry file
+exec_line=$(grep "^Exec=" "$desktop_entry_file" | sed 's/^Exec=//')
+
+# Launch Sway with the extracted Exec line
+sway $exec_line
+
+# -----------------------------------------------------
+
+#!/bin/bash
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 desktop_entry_file.desktop"
+    exit 1
+fi
+
+desktop_entry_file="$1"
+
+# Extract the Exec line from the desktop entry file
+exec_line=$(grep "^Exec=" "$desktop_entry_file" | sed 's/^Exec=//')
+
+# Extract the session name from the desktop entry file
+session_name=$(basename "$desktop_entry_file" .desktop)
+
+# Launch Xorg with the extracted Exec line
+startx $exec_line -- -n "$session_name"
