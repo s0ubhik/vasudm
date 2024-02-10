@@ -1,0 +1,4 @@
+#sdir=$(realpath $(dirname $0))
+export PATH=$PATH:`pwd`/scripts
+
+

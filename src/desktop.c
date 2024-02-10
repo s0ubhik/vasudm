@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <string.h>
+#include <dirent.h>
 #include "desktop.h"
-#include "ini.h"
+#include "vendor/ini.h"
 
 static desktops_t desktops = { .count = 0 };
 
@@ -21,7 +22,7 @@ int add_desktop(char *name, deskt_t type, char *path, char *exec)
 
 int handle_desktop_entry(void* user, const char* section, const char* name, const char* value)
 {
-    if (strcmp(name, "Name") == 0) 
+    if (strcmp(name, "Name") == 0)
         desktops.environ[desktops.count-1].name = strdup(value);
 
     else if (strcmp(name, "Exec") == 0)
@@ -34,7 +35,7 @@ void crawl_session_dir(char *path, deskt_t type)
 {
     DIR *dir = opendir(path);
     if (dir == NULL) return;
-    
+
     struct dirent *entry;
 
     while( (entry = readdir(dir)) != NULL ){
@@ -64,21 +65,6 @@ desktops_t* crawl_desktop()
     return &desktops;
 }
 
-void start_shell(environ_t *env)
-{
-
-}
-
-void start_xorg(environ_t *env)
-{
-  printf("Hiii %s\n", env->name);
-}
-
-void start_wayland(environ_t *env)
-{
-
-}
-
 void start_desktop(int index)
 {
     if (index < 0 || index > desktops.count) return;
@@ -102,3 +88,19 @@ void start_desktop(int index)
         break;
     }
 }
+
+void start_shell(environ_t *env)
+{
+  printf("Hiii %s\n", env->name);
+}
+
+void start_xorg(environ_t *env)
+{
+  printf("Hiii %s\n", env->name);
+}
+
+void start_wayland(environ_t *env)
+{
+
+}
+

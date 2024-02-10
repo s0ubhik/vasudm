@@ -7,8 +7,10 @@
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
-#include "stb_image.h"
+#include "vendor/stb_image.h"
+#include "vendor/stb_image_resize2.h"
 #include "graphics.h"
+#include "utils.h"
 
 #define READ_SIZE 4096
 
@@ -38,11 +40,11 @@ void close_fb()
     fclose(graphics.fb);
 }
 
-void rgba2bgra(uint8_t *pixels, uint32_t width, uint32_t height)
+void rgba2bgra(uint8_t *pixels, uint32_t width, uint32_t height, uint32_t image_channels)
 {
     for (size_t y = 0; y < height; ++y) {
         for (size_t x = 0; x < width; ++x) {
-            size_t i = (x + (y * width)) * 4;
+            size_t i = (x + (y * width)) * image_channels;
             uint8_t b = pixels[i];
             uint8_t r = pixels[i + 2];
             pixels[i] = r;
@@ -51,7 +53,8 @@ void rgba2bgra(uint8_t *pixels, uint32_t width, uint32_t height)
     }
 }
 
-img_type get_image_type(FILE *fp, uint8_t *data) 
+
+img_type get_image_type(FILE *fp, uint8_t *data)
 {
     fread(data, 1, 8, fp);
 
@@ -83,12 +86,12 @@ void get_fb_size(uint32_t *fb_w, uint32_t *fb_h)
     /* parse height and width */
     while (1) {
         char c = getc(size);
-        if (isdigit(c)) { 
+        if (isdigit(c)) {
             if (b) { h_[i++] = c; }
             else   { w_[i++] = c; }
         } else if (!b) {
             b = 1; i = 0;
-        } else break; 
+        } else break;
     }
 
     fclose(size);
@@ -96,81 +99,46 @@ void get_fb_size(uint32_t *fb_w, uint32_t *fb_h)
     *fb_h = (uint32_t) atoi(h_);
 }
 
-bool draw_image(int32_t offset_x, int32_t offset_y, const char *image_path )
-{
+bool draw_image(int32_t offset_x, int32_t offset_y, uint32_t img_width, uint32_t img_height, const char *image_path) {
+    uint32_t image_w, image_h, image_channels;
 
-    FILE *image_stream;
-    image_stream = fopen(image_path, "r");
-    
-    if (!image_stream) {
-        perror("Cannot open image");
-        return false;
-    }
+    if (access(image_path, F_OK) != 0) return verror("Image file does not exists");
 
-    uint32_t image_w;
-    uint32_t image_h;
-    uint8_t *image_pixels;
-    uint8_t *image_data = malloc(8);
-    
-    img_type type = get_image_type(image_stream, image_data);
+    unsigned char* image_pixels = stbi_load(image_path, &image_w, &image_h, &image_channels, 0);
+    if (!image_pixels) return verror("Failed to load the image\n");
 
-    if (type != JPEG && type != PNG) {
-        printf("Image isn't jpeg, or png\n");
-        fclose(image_stream);
-        return false;
-    }
+     unsigned char *resized_image = (unsigned char *)malloc(img_width * img_height * image_channels);
 
-    size_t len = 8;
-    while (1) {
-        if (feof(image_stream))
-            break;
-
-        if (ferror(image_stream)) {
-            fclose(image_stream);
-            return false;
-        }
-
-        image_data = realloc(image_data, len + READ_SIZE);
-        if (!image_data) {
-            fclose(image_stream);
-            return false;
-        }
-        
-        len += fread(image_data + len, 1, READ_SIZE, image_stream);
-    }
-
-    int image_bpp;
-    image_pixels = stbi_load_from_memory(image_data, len + READ_SIZE - 1, (int *)&image_w, (int *)&image_h, &image_bpp, STBI_rgb_alpha);
-
-    if (!image_pixels) {
-        printf("Couldn't decode %s image: %s\n", type == PNG ? "png" : "jpeg", stbi_failure_reason());
-        fclose(image_stream);
-        return false;
-    }
-
-    rgba2bgra(image_pixels, image_w, image_h);
-    
-    fclose(image_stream);
-
-    // draw image
-    if (offset_y >= -(int32_t)image_h) {
-        for (uint32_t y = offset_y < 0 ? -offset_y : 0; y < (offset_y < 0 ? -offset_y : 0) + image_h && y + offset_y < graphics.fb_h; ++y) {
-            fseek(graphics.fb, ((offset_x < 0 ? 0 : offset_x) + (y + offset_y) * graphics.fb_w) * 4, SEEK_SET);
-            uint32_t w = image_w + (offset_x < 0 ? offset_x : 0) - (offset_x + image_w >= graphics.fb_w ? offset_x - (graphics.fb_w - image_w) : 0);
-            uint32_t i = y * image_w - (offset_x < 0 ? offset_x : 0);
-
-            if (i > image_w * image_h) break;
-
-            if (offset_x >= -(int32_t)image_w && w > 0 && offset_x < graphics.fb_w)
-                fwrite(image_pixels + i * 4, 1, w * 4, graphics.fb);
-        }
+    if (!stbir_resize_uint8_linear(image_pixels, image_w, image_h, 0,
+                             resized_image, img_width, img_height, 0, image_channels))
+    {
+        stbi_image_free(image_pixels);
+        free(resized_image);
+        return verror("Failed to resize the image");
     }
 
     stbi_image_free(image_pixels);
 
+    uint8_t pixelColor[4];
+    for (int y = 0; y < img_height; ++y) {
+        for (int x = 0; x < img_width; ++x) {
+            uint32_t color = 0;
+            for (int c = 0; c < image_channels; ++c) {
+                color |= (uint32_t)resized_image[(x + y * img_width) * image_channels + c] << (c * 8);
+            }
+
+            fseek(graphics.fb, ((x + offset_x) + (y + offset_y) * graphics.fb_w) * 4, SEEK_SET);
+            pixelColor[0] = (color >> 16) & 0xFF; // blue
+            pixelColor[1] = (color >> 8) & 0xFF;  // red
+            pixelColor[2] = color & 0xFF;         // green
+            pixelColor[3] = (color >> 24) & 0xFF; // alpha
+            fwrite(pixelColor, 1, 4, graphics.fb);
+        }
+    }
+
+    free(resized_image);
     return true;
 }
-
 
 void draw_pixel(int32_t x, int32_t y, uint32_t color)
 {
@@ -179,9 +147,9 @@ void draw_pixel(int32_t x, int32_t y, uint32_t color)
     fseek(graphics.fb, (x + y * graphics.fb_w) * 4, SEEK_SET);
 
     uint8_t pixelColor[4];
-    pixelColor[2] = (color >> 16) & 0xFF; // red
-    pixelColor[1] = (color >> 8) & 0xFF;  // green
-    pixelColor[0] = color & 0xFF;         // blue
+    pixelColor[0] = color & 0xFF;         // red
+    pixelColor[1] = (color >> 8) & 0xFF;  // blue
+    pixelColor[2] = (color >> 16) & 0xFF; // green
     pixelColor[3] = (color >> 24) & 0xFF; // alpha
 
     fwrite(pixelColor, 1, 4, graphics.fb);
@@ -197,7 +165,7 @@ void draw_rect_round(int32_t x, int32_t y, uint32_t width, uint32_t height, uint
             uint32_t distance = sqrt(dx * dx + dy * dy);
 
             if (distance <= borderRadius) {
-                if (distance >= borderRadius - borderWidth*0.5) 
+                if (distance >= borderRadius - borderWidth*0.5)
                     draw_pixel(x + j, y + i, borderColor);
             }
         }
@@ -208,7 +176,7 @@ void draw_rect(int32_t x, int32_t y, uint32_t width, uint32_t height, uint32_t b
 {
     for (uint32_t i = 0; i < height; ++i) {
         for (uint32_t j = 0; j < width; ++j) {
-            if (i < borderWidth || i >= height - borderWidth || j < borderWidth || j >= width - borderWidth) 
+            if (i < borderWidth || i >= height - borderWidth || j < borderWidth || j >= width - borderWidth)
                 draw_pixel(x + j, y + i, borderColor);
         }
     }

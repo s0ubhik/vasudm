@@ -25,10 +25,20 @@ typedef struct
     int count;
 } desktops_t;
 
+int add_desktop(char *name, deskt_t type, char *path, char *exec);
 
-void print_desktops();
+int handle_desktop_entry(void* user, const char* section, const char* name, const char* value);
+
+void crawl_session_dir(char *path, deskt_t type);
+
+desktops_t* crawl_desktop();
 
 void start_desktop(int index);
-desktops_t* crawl_desktop();
+
+void start_shell(environ_t *env);
+
+void start_xorg(environ_t *env);
+
+void start_wayland(environ_t *env);
 
 #endif

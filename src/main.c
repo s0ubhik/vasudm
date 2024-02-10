@@ -2,22 +2,18 @@
 #include "desktop.h"
 #include <sys/ioctl.h>
 #include <unistd.h>
-#include "ini.h"
 #include <string.h>
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include "utils.h"
+#include "config.h"
+#include "graphics.h"
+#include "ui.h"
 
-void getTerminalSize(int *rows, int *cols) {
-    struct winsize size;
-    ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
 
-    *rows = size.ws_row;
-    *cols = size.ws_col;
-}
-
+/*
 typedef struct
 {
     char *name;
@@ -69,13 +65,13 @@ int handle_config(void* user, const char* section, const char* name, const char*
 {
     if (strcmp(name, "defaultUsername") == 0) 
         config.username = strdup(value);
-    
+
     else if (strcmp(name, "header") == 0) 
         parse_subpair(value, &config.header);
-    
+
     else if (strcmp(name, "defaultSession") == 0) 
         parse_subpair(value, &config.header);
-    
+
     else if (strcmp(name, "showHelp") == 0) 
         parse_bool(value, &config.showHelp);
 
@@ -84,7 +80,7 @@ int handle_config(void* user, const char* section, const char* name, const char*
 
     else if (strcmp(name, "borderWidth") == 0) 
         config.borderWidth = atoi(value);
-    
+
     else if (strcmp(name, "borderRadius") == 0) 
         config.borderRadius = atoi(value);
 
@@ -96,30 +92,50 @@ int handle_config(void* user, const char* section, const char* name, const char*
 
     return 1;
 }
+*/
 
 int main(int argc, char const *argv[])
 {
-    ini_parse("res/vdm.config", handle_config, NULL);
-    printf("Template%s:%s\n", config.header.name,config.header.value);
-//     /* get desktop environments */
+    use_fb("fb0");
+    system("clear");
 
-//     // desktops_t* desktops = crawl_desktop();
+    read_config();
+    char s[10];
     
-//     // for (int i = 0; i < desktops->count; i++)
-//     //     printf("%d | %s \t | %s | %d | %s |\n", i, desktops->environ[i].path, desktops->environ[i].name, desktops->environ[i].type, desktops->environ[i].exec);
+    while (1){
+        render_ui();
+        get_input();
+    }
 
-//     /* render */
-//     int rows, cols;
-//     getTerminalSize(&rows, &cols);
-
-//     printf("Terminal Size: Rows = %d, Columns = %d\n", rows, cols);
-
-
-//     // print_desktops();
-    
-//     /* authenticate */
-
-//     /* start */
-
-//     return 0;
+    close_fb();
 }
+
+/*
+int main_main()
+{
+    char username[256];
+    int8_t environ_index;
+
+    load_config();
+
+    crawl_desktop();
+
+    while (1) {
+        ui_render();
+
+        if (handle_keybaoard() == 0) continue;
+
+        if (auth_pam() == 0) {
+            ui_log(LOG_SUCCESS, "Welcome");
+            break;
+        }
+
+        ui_log(LOG_ERROR, "Invalid Login");
+    }
+
+    switch_user(username);
+
+    start_session(environ_index);
+}
+
+*/

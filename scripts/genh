@@ -1,0 +1,139 @@
+#!/bin/python3
+"""
+                           !! CATUION !!
+
+                        USE AT YOUR OWN RISK
+
+This script find undeclareds functionsfrom src/*.c and adds them to
+respesctive header files. This works for me due to specific style
+of function defination.
+
+"""
+import os, sys
+import subprocess
+
+def get_h_defs(filename):
+  with open(filename) as fp:
+    data = fp.read()
+
+  lines = data.split("\n")
+
+  i = 0
+  defs = []
+
+  while i < len(lines):
+    if (len(lines[i]) < 2):
+      i+= 1
+      continue
+
+    if lines[i].strip()[-1] == ";":
+      lin = lines[i].strip()
+      pts = lin.split(" ")
+
+      if pts[0] in ["static", "typedef", "enum",  "struct", "}", "{"]:
+        i+= 1
+        continue
+      if "(" not in lin or ")" not in lin:
+        i += 1
+        continue
+
+      defs.append(lin.strip())
+
+    i += 1
+  return defs
+
+
+
+def get_c_defs(filename):
+  with open(filename) as fp:
+    data = fp.read()
+
+  lines = data.split("\n")
+
+  i = 0
+  defs = []
+
+  while i < len(lines):
+
+    if lines[i].strip() == "{":
+      lin = lines[i-1].strip()
+      pts = lin.split(" ")
+      if pts[0] in ["static", "typedef", "enum",  "struct"]:
+        i+= 1
+        continue
+      defs.append(lin.strip()+";")
+
+    i += 1
+  return defs
+
+def add_defs(filename, defs):
+  with open(filename) as fp:
+    data = fp.read()
+  lines = data.split("\n")
+  end_line = 0
+  for i in range(len(lines)):
+    if "#endif" in lines[i].strip().lower(): end_line = i
+  for def_ in defs:
+    lines.insert(end_line-1, "\n"+def_)
+
+  new_h = "\n".join(lines)
+  with open(h_file, "w+") as fp:
+    fp.write(new_h)
+
+def create_empty_hfile(filename):
+  h_name = filename.split("/")[-1].split(".")[0].upper() + "_H"
+  h_content = f"#ifndef {h_name}\n#define {h_name}\n\n#endif"
+  with open(filename, "w+") as fp:
+    fp.write(h_content)
+
+skipped = []
+allok = []
+found = []
+
+# find c file src
+cfiles = subprocess.getoutput('find src -type f -regex ".*\.[c]$"').split("\n")
+for c_file in cfiles:
+  h_file = "include/"+c_file.split("/")[-1].split(".c")[0]+".h"
+
+  if not os.path.exists(h_file):
+    create_empty_hfile(h_file)
+
+  # get function definations
+  defs_c = get_c_defs(c_file)
+  defs_h = get_h_defs(h_file)
+
+  to_add = []
+
+  # find undeclared functions
+  for def_ in defs_c:
+    if def_ not in defs_h:
+      to_add.append(def_)
+
+  if len(to_add) == 0:
+    allok.append(c_file)
+    continue
+
+  to_add.reverse()
+  found.append([(c_file, h_file), to_add])
+
+if "-v" in sys.argv:
+  for c_file in skipped:
+    print(c_file, "[ SKIPPED ]")
+
+  for c_file in allok:
+    print(c_file, "[ OK ]")
+
+for ((c_file, h_file), to_add) in found:
+  if "-v" in sys.argv:
+    print()
+    print(c_file, h_file, " [ FOUND", str(len(to_add)), "]")
+    for def_ in to_add:
+      print(def_)
+    print()
+  else:
+    n = len(to_add)
+    ho_file = h_file.split("/")[-1]
+    print(f"  GENH  {ho_file}")
+  # add declarations
+  add_defs(h_file, to_add)
+

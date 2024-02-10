@@ -1,144 +1,153 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+#include "config.h"
 #include "graphics.h"
-#include <sys/ioctl.h>
-#include <unistd.h>
-#include <termios.h>
+#include "utils.h"
+#include "ui.h"
 
+static uidata_t ui_data = { .select = INPUT_LOGIN };
 
-void get_terminal_size(int *rows, int *cols) {
-    struct winsize ws;
-    ioctl(0, TIOCGWINSZ, &ws);
-
-    *rows = ws.ws_row;
-    *cols = ws.ws_col;
+void move_previous_input()
+{
+    if (ui_data.select == 0)
+        ui_data.select = INPUT_END - 1;
+    else ui_data.select -= 1;
 }
 
-
-
-int getch();
-
-void get_input(char * dest){  
-	int i=0;  
-	while(1){  
-		char c = getch();  
-        printf("%d ", c);
-        if (c == 27) { // ASCII code for Escape key
-            // This might be an arrow key, check for the next two characters
-            c = getch();
-            if (c == 91) { // '[' following Escape indicates an arrow key
-                c = getch();
-
-                if (c == 65) {
-                    printf("Up Arrow Pressed\n");
-                } else if (c == 66) {
-                    printf("Down Arrow Pressed\n");
-                }
-            }
-        }
-		if(c == '\n'){  
-			dest[i] = 0;  
-			break;  
-		} else {  
-			dest[i] = c;
-            printf("%c",c);
-		}  
-		i++;  
-	}  
+void move_next_input()
+{
+    if (ui_data.select+1 == INPUT_END)
+        ui_data.select = 0;
+    else ui_data.select += 1;
 }
 
-void get_pswd(char * dest){  
-	int i=0;  
-	while(1){  
-		char c = getch();  
-        printf("%d ", c);
-        if (c == 27) { // ASCII code for Escape key
-            // This might be an arrow key, check for the next two characters
-            c = getch();
-            if (c == 91) { // '[' following Escape indicates an arrow key
-                c = getch();
+void get_input(){
+    config_t* config = get_config();
+    char *dest;
+	int i = 0;
 
-                if (c == 65) {
-                    printf("Up Arrow Pressed\n");
-                } else if (c == 66) {
-                    printf("Down Arrow Pressed\n");
-                }
-            }
-        }
+    strncpy(ui_data.password, "", strlen(ui_data.password));
 
-		if(c == '\n'){  
-			dest[i] = 0;  
-			break;  
-		} else {  
-			dest[i] = c;
-            printf("*");
-		}  
-		i++;  
-	}  
-}
-
-
-int getch() {
-   struct termios oldtc;
-   struct termios newtc;
-   int ch;
-   tcgetattr(STDIN_FILENO, &oldtc);
-   newtc = oldtc;
-   newtc.c_lflag &= ~(ICANON | ECHO);
-   tcsetattr(STDIN_FILENO, TCSANOW, &newtc);
-   ch=getchar();
-   tcsetattr(STDIN_FILENO, TCSANOW, &oldtc);
-   return ch;
-}
-
-int main4() {
-    uint32_t width = 200;
-    uint32_t height = 30;
-    uint32_t borderWidth = 2;
-    uint32_t borderRadius = 10;
-    uint32_t plborder = 0x383838;
-    uint32_t acborder = 0x0F94D2;
-    system("clear");
-    int rows, cols;
-    get_terminal_size(&rows, &cols);
-    use_fb("fb0");
-
-    draw_image(900, 390, "res/icons/arch.jpg");
-    draw_rect_round(840, 507, width, height, borderWidth, borderRadius, acborder);
-    draw_rect_round(840, 555, width, height, borderWidth, borderRadius, plborder);
-    char in[256];
-
-    // draw_rect(840, 505, width, height, borderWidth, 0x0F94D2);
-    // draw_rect(840, 553, width, height, borderWidth, 0x383838);
-    close_fb();
-    move_cursor((507+32)/16, (840+16)/8);
-    printf("login");
-
-    move_cursor((555+32)/16, (840+16)/8);
-    printf("password");
-
-    move_cursor((507+32)/16, (840+16)/8);
-    get_input(in);
-
-    move_cursor((555+32)/16, (840+16)/8);
-    get_pswd(in);
-
-    // move_cursor(0, 201);
-    // printf("F1 change session F2 shutdown F3 reboot ");
-
-
-    // move_cursor(0, 0);
-    // printf("Cinnamon Default");
-
-
-
-
-    move_cursor(67, 0);
-    while(1) {
-
+    if (config->username != NULL) {
+        strcpy(ui_data.username, config->username);
+        ui_data.select = INPUT_PASWD;
+        config->username = NULL; // only once
     }
 
 
-    return 0;
+	while(1){
+        render_inputs();
+        if (ui_data.select ==  INPUT_LOGIN) dest = ui_data.username;
+        else if (ui_data.select ==  INPUT_PASWD) dest = ui_data.password;
+        i = strlen(dest);
+        move_cursor((ui_data.y_inputs + config->spaceBetweenInput*ui_data.select)/16 + 2, (ui_data.x_inputs)/8 + 2 + i);
+
+		char c = getch();
+
+        // backspace
+        if (c == 127) {
+            dest[i-1] = '\0';
+            continue;
+        }
+
+        // arrows
+        if (c == 27) { 
+            c = getch();
+            if (c != 91) continue;
+            c = getch();
+            if (c == 65) {
+                move_previous_input();
+            } else if (c == 66) {
+                move_next_input();
+            }
+            continue;
+        }
+
+        // enter
+        if(c == '\n'){  
+			dest[i] = 0;
+            if (ui_data.select ==  INPUT_LOGIN) { move_next_input(); continue;}
+            printf("\n\nusername: %s password: %s", ui_data.username, ui_data.password);
+            break;
+		}
+
+        // allow only ascii
+        if (c<32 || c>127) continue;
+
+        // save charecter
+        dest[i] = c;
+		i++;
+	}  
+}
+
+
+void render_inputs()
+{
+    config_t* config = get_config();
+
+    /* print current values */
+    move_cursor((ui_data.y_inputs)/16 + 2, (ui_data.x_inputs)/8 + 2);
+    for(int i = 0; i < config->inputWidth/8; i++)
+        printf(" ");
+    move_cursor((ui_data.y_inputs + config->spaceBetweenInput)/16 + 2, (ui_data.x_inputs)/8 + 2);
+    for(int i = 0; i < config->inputWidth/8; i++)
+        printf(" ");
+
+    move_cursor((ui_data.y_inputs)/16 + 2, (ui_data.x_inputs)/8 + 2);
+    printf("%s",ui_data.username);
+    move_cursor((ui_data.y_inputs + config->spaceBetweenInput)/16 + 2, (ui_data.x_inputs)/8 + 2);
+    for(int i = 0; i < strlen(ui_data.password); i++)
+        printf("*");
+
+    /* custom adjustments please */
+    if (config->borderRadius == 0)
+    {
+        draw_rect(ui_data.x_inputs-4,  ui_data.y_inputs-2, config->inputWidth, config->inputHeight, config->borderWidth,
+            (ui_data.select ==  INPUT_LOGIN) ? config->accentColor : config->secondaryColor);
+        draw_rect(ui_data.x_inputs-4,  ui_data.y_inputs -4 + config->spaceBetweenInput, config->inputWidth, config->inputHeight, config->borderWidth,
+            (ui_data.select ==  INPUT_PASWD) ? config->accentColor : config->secondaryColor);
+    } else {
+        draw_rect_round(ui_data.x_inputs-4, ui_data.y_inputs-2, config->inputWidth, config->inputHeight, config->borderWidth, config->borderRadius,
+            ui_data.select ==  INPUT_LOGIN ? config->accentColor : config->secondaryColor);
+        draw_rect_round(ui_data.x_inputs-4, ui_data.y_inputs-4 + config->spaceBetweenInput, config->inputWidth, config->inputHeight, config->borderWidth, config->borderRadius,
+            ui_data.select ==  INPUT_PASWD ? config->accentColor : config->secondaryColor);
+    }
+}
+
+
+void render_ui()
+{
+    config_t* config = get_config();
+    uint32_t screen_width, screen_height;
+
+    get_fb_size(&screen_width, &screen_height);
+    uint32_t voffset = (screen_height - (config->inputHeight*2 + config->spaceBetweenInput))/2 - (config->inputHeight*2 + config->spaceBetweenInput);
+
+    if (config->header.name == NULL || (strcmp(config->header.name, "image") == 0)){
+        /* Logo */
+        uint32_t img_x, img_y;
+        voffset = (uint32_t) (screen_height - (config->imageHeight + config->inputHeight*2 + config->spaceBetweenInput))/2; 
+        
+        if (config->imageX == -1) img_x = (int32_t) (screen_width-config->imageWidth)/2;
+        else img_x = config->imageX;
+
+        if (config->imageY == -1) img_y = voffset;
+        else img_y = config->imageY;
+
+        draw_image(img_x, img_y, config->imageWidth, config->imageHeight, config->header.value);
+        voffset += config->imageHeight + 20;
+
+    } else if (strcmp(config->header.name, "text") == 0) {
+        /* Text */
+        // TODO: NOT implement
+        verror("Text Header not implemented");
+        return;
+
+    } else { /* No Header */ }
+
+    ui_data.x_inputs = (screen_width-config->inputWidth)/2;
+    ui_data.y_inputs = voffset;
+    render_inputs();
 }
