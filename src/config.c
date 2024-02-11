@@ -17,6 +17,7 @@ static config_t config = {
     .borderRadius = 10,
     .inputWidth = 200,
     .inputHeight = 30,
+    .secureMask = '*',
     .accentColor = 0x0F94D2,
     .secondaryColor = 0x383838,
     .spaceBetweenInput = 50,
@@ -87,6 +88,8 @@ int handle_config(void* user, const char* section, const char* name, const char*
     else if (strcmp(name, "spaceBetweenInput") == 0) 
         config.spaceBetweenInput = atoi(value);
 
+    else if (strcmp(name, "secureMask") == 0)
+        config.secureMask = strdup(value)[0];
 
     return 1;
 }

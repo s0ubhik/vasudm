@@ -99,7 +99,7 @@ void render_inputs()
     printf("%s",ui_data.username);
     move_cursor((ui_data.y_inputs + config->spaceBetweenInput)/16 + 2, (ui_data.x_inputs)/8 + 2);
     for(int i = 0; i < strlen(ui_data.password); i++)
-        printf("*");
+        printf("%c",config->secureMask);
 
     /* custom adjustments please */
     if (config->borderRadius == 0)
