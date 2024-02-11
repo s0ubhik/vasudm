@@ -181,9 +181,3 @@ void draw_rect(int32_t x, int32_t y, uint32_t width, uint32_t height, uint32_t b
         }
     }
 }
-
-void move_cursor(int row, int col)
-{
-    printf("\033[%d;%dH", row, col);
-    fflush(stdout);
-}

@@ -3,6 +3,21 @@
         "ioctl.h": "c",
         "unistd.h": "c",
         "termios.h": "c",
-        "stdbool.h": "c"
+        "stdbool.h": "c",
+        "typeinfo": "cpp",
+        "type_traits": "c",
+        "ini.h": "c",
+        "config.h": "c",
+        "colors.h": "c",
+        "ui.h": "c",
+        "auth.h": "c",
+        "cstdlib": "c",
+        "stdlib.h": "c",
+        "pam_appl.h": "c",
+        "stdint.h": "c",
+        "types.h": "c",
+        "utils.h": "c",
+        "desktop.h": "c",
+        "graphics.h": "c"
     }
 }

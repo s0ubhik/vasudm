@@ -11,4 +11,19 @@ void trim(char *str);
 void get_terminal_size(int *rows, int *cols);
 
 int getch();
+
+void echo_on();
+
+void echo_off();
+
+void cursor_on();
+
+void cursor_off();
+
+void move_cursor(int row, int col);
+
+void clear_screen();
+
+int switch_user(char* username);
+
 #endif

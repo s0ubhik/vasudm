@@ -11,7 +11,7 @@ typedef struct
 typedef struct
 {
     char *username;
-
+    char *textColor;
     char secureMask;
     keyval session;
     keyval header;
@@ -30,13 +30,11 @@ typedef struct
     uint32_t inputHeight;
     uint32_t accentColor;
     uint32_t headerColor;
-    uint32_t textColor;
     uint32_t borderInactiveColor;
     uint32_t secondaryColor;
     uint32_t spaceBetweenInput;
 
 } config_t;
-
 
 void parse_bool(const char *value, bool *item);
 

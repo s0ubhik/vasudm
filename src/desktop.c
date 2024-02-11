@@ -101,6 +101,6 @@ void start_xorg(environ_t *env)
 
 void start_wayland(environ_t *env)
 {
-
+  printf("Hiii %s\n", env->name);
 }
 

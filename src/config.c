@@ -5,6 +5,7 @@
 #include <sys/ioctl.h>
 #include <stdint.h>
 #include "config.h"
+#include "ascii_color.h"
 #include "vendor/ini.h"
 #include "utils.h"
 
@@ -21,6 +22,7 @@ static config_t config = {
     .accentColor = 0x0F94D2,
     .secondaryColor = 0x383838,
     .spaceBetweenInput = 50,
+    .textColor = "\e[0;37m",
     .header = {.value = "res/icons/arch.jpg"}
 };
 
@@ -43,6 +45,9 @@ int handle_config(void* user, const char* section, const char* name, const char*
     if (strcmp(name, "defaultUsername") == 0) 
         config.username = strdup(value);
 
+    if (strcmp(name, "textColor") == 0) 
+        config.textColor = ascii_color(strdup(value));
+    
     else if (strcmp(name, "header") == 0) 
         parse_subpair(value, &config.header);
 
@@ -82,7 +87,7 @@ int handle_config(void* user, const char* section, const char* name, const char*
     // else if (strcmp(name, "accentColor") == 0) 
     //     config.accentColor = atoi(value);
 
-    // else if (strcmp(name, "imageHeight") == 0) 
+    // else if (strcmp(name, "secondaryColor") == 0) 
     //     config.secondaryColor = atoi(value);
 
     else if (strcmp(name, "spaceBetweenInput") == 0) 
@@ -96,11 +101,10 @@ int handle_config(void* user, const char* section, const char* name, const char*
 
 void read_config()
 {
-  ini_parse("res/vdm.config", handle_config, NULL);
+  ini_parse("/etc/vasudm/vasudm.conf", handle_config, NULL);
 }
 
 config_t* get_config()
 {
     return &config;
 }
-
